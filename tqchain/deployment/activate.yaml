@@ -9,6 +9,16 @@ spec:
       name: activate-job
     spec:
       initContainers:
+      - name: import-keys
+        command: ['sh', '-x', '/opt/tqtezos/import_keys.sh']
+        envFrom:
+        - secretRef:
+            name: tezos-secret
+        volumeMounts:
+        - name: tqtezos-utils
+          mountPath: /opt/tqtezos
+        - name: var-volume
+          mountPath: /var/tezos
       - name: wait-for-node
         image: busybox
         command: ['sh', '-c', 'until nslookup tezos-rpc; do echo waiting for tezos-rpc; sleep 2; done;']
@@ -37,5 +47,7 @@ spec:
         configMap:
           name: tezos-config
       - name: var-volume
-        persistentVolumeClaim:
-          claimName: tezos-pv-claim
+        emptyDir: {}
+      - name: tqtezos-utils
+        configMap:
+          name: tqtezos-utils

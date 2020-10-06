@@ -1,4 +1,5 @@
 import argparse
+import base64
 import json
 import os
 import random
@@ -30,8 +31,9 @@ def safeget(dct, *keys):
 
 
 def run_docker(image, entrypoint, mount, *args):
+    print("podman run --privileged --entrypoint %s -u %s:%s --rm -v %s %s %s" % (entrypoint, os.getuid(), os.getgid(), mount, image, " ".join(args)) , file = sys.stderr)
     return subprocess.check_output(
-        "docker run --entrypoint %s -u %s:%s --rm -v %s %s %s"
+        "podman run --privileged --entrypoint %s -u %s:%s --rm -v %s %s %s"
         % (entrypoint, os.getuid(), os.getgid(), mount, image, " ".join(args)),
         stderr=subprocess.STDOUT,
         shell=True,
@@ -100,22 +102,33 @@ def get_ensure_node_dir_job():
 
 
 def get_identity_job(docker_image):
-    return [
-        {
-            "name": "identity-job",
-            "image": docker_image,
-            "command": ["/bin/sh"],
-            "args": [
-                "-c",
-                "[ -f /var/tezos/node/identity.json ] || (mkdir -p /var/tezos/node && /usr/local/bin/tezos-node identity generate 0 --data-dir /var/tezos/node --config-file /etc/tezos/config.json)"
-            ],
-            "volumeMounts": [
-                {"name": "config-volume", "mountPath": "/etc/tezos"},
-                {"name": "var-volume", "mountPath": "/var/tezos"},
-            ],
-        }
-    ]
+    return {
+        "name": "identity-job",
+        "image": docker_image,
+        "command": ["/bin/sh"],
+        "args": [
+            "-c",
+            "[ -f /var/tezos/node/identity.json ] || (mkdir -p /var/tezos/node && /usr/local/bin/tezos-node identity generate 0 --data-dir /var/tezos/node --config-file /etc/tezos/config.json)"
+        ],
+        "volumeMounts": [
+            {"name": "config-volume", "mountPath": "/etc/tezos"},
+            {"name": "var-volume", "mountPath": "/var/tezos"},
+        ],
+    }
 
+def get_import_key_job(docker_image):
+    return {
+        "name": "import-keys",
+        "image": docker_image,
+        "command": ["sh", "-x", "/opt/tqtezos/import_keys.sh"],
+        "envFrom": [
+            {"secretRef": { "name": "tezos-secret" } },
+        ],
+        "volumeMounts": [
+            {"name": "tqtezos-utils", "mountPath": "/opt/tqtezos"},
+            {"name": "var-volume", "mountPath": "/var/tezos"},
+        ],
+    }
 
 def get_baker(docker_image, baker_command):
     return {
@@ -345,6 +358,7 @@ def get_args():
     parser.add_argument("chain_name")
 
     parser.add_argument("--tezos-dir", default=os.path.expanduser("~/.tq/"))
+    parser.add_argument("--master-account-key-file", default="./master_account_private_key")
     parser.add_argument("--baker", action="store_true")
     parser.add_argument("--docker-image", default="tezos/tezos:v7-release")
     parser.add_argument("--bootstrap-mutez", default="4000000000000")
@@ -400,12 +414,10 @@ def main():
     zerotier_network = args.zerotier_network
     zerotier_token = args.zerotier_token
 
-    if args.create:
-        if args.cluster in ["minikube", "docker-desktop"]:
-            k8s_templates.append("pv.yaml")
-        elif args.cluster == "eks":
-            k8s_templates.append("eks.yaml")
+    if args.cluster in ["minikube", "docker-desktop"]:
+        k8s_templates.append("pv.yaml")
 
+    if args.create:
         k8s_templates.append("activate.yaml")
         if genesis_key is None:
             bootstrap_accounts.append("genesis")
@@ -498,7 +510,16 @@ def main():
 
                 if safeget(k, "metadata", "name") == "tezos-pv-claim":
                     if args.cluster == "eks":
-                        k["spec"]["storageClassName"] = "ebs-sc"
+                        k["spec"]["storageClassName"] = "gp2"
+                    k["spec"].pop("selector")
+
+                if safeget(k, "metadata", "name") == "tezos-secret":
+                    k["data"] = {}
+                    if args.cluster != "minikube":
+                        for account in bootstrap_accounts + ["genesis"]:
+                            var_name = account.upper() + "_PRIVATE_KEY"
+                            if var_name in os.environ:
+                                k["data"][var_name] = base64.b64encode(os.environ[var_name].encode("ascii"))
 
                 if safeget(k, "metadata", "name") == "tezos-config":
                     k["data"] = {
@@ -519,6 +540,13 @@ def main():
                                 genesis_block,
                             )
                         ),
+                    }
+
+                if safeget(k, "metadata", "name") == "tqtezos-utils":
+                    with open(os.path.join(my_path, "utils/import_keys.sh"), "r") as import_file:
+                        import_key_script = import_file.read()
+                    k["data"] = {
+                        "import_keys.sh": import_key_script,
                     }
 
                 if safeget(k, "metadata", "name") == "tezos-node":
@@ -547,10 +575,17 @@ def main():
                     #         "initContainers"
                     #     ] = get_identity_job(args.docker_image)
 
+                    k["spec"]["template"]["spec"]["initContainers"] = []
+                    if args.create:
+                        # add key import for bootstrap node
+                        k["spec"]["template"]["spec"][
+                            "initContainers"
+                        ].append(get_import_key_job(args.docker_image))
+
                     # add the identity job
                     k["spec"]["template"]["spec"][
                         "initContainers"
-                    ] = get_identity_job(args.docker_image)
+                    ].append(get_identity_job(args.docker_image))
 
                     if args.baker:
                         k["spec"]["template"]["spec"]["containers"].append(
@@ -558,10 +593,13 @@ def main():
                         )
 
                 if safeget(k, "metadata", "name") == "activate-job":
-                    k["spec"]["template"]["spec"]["initContainers"][1][
+                    k["spec"]["template"]["spec"]["initContainers"][0][
                         "image"
                     ] = args.docker_image
-                    k["spec"]["template"]["spec"]["initContainers"][1]["args"] = [
+                    k["spec"]["template"]["spec"]["initContainers"][2][
+                        "image"
+                    ] = args.docker_image
+                    k["spec"]["template"]["spec"]["initContainers"][2]["args"] = [
                         "-A",
                         "tezos-rpc",
                         "-P",
@@ -584,9 +622,15 @@ def main():
                         "parameters",
                         "/etc/tezos/parameters.json",
                     ]
-                    k["spec"]["template"]["spec"]["initContainers"][2][
+                    k["spec"]["template"]["spec"]["initContainers"][3][
                         "image"
                     ] = args.docker_image
+
+                    if args.cluster == "minikube":
+                        k["spec"]["template"]["spec"]["volumes"][1] = {
+                           "name": "var-volume",
+                           "persistentVolumeClaim": {
+                             "claimName": "tezos-pv-claim" } }
 
                 if safeget(k, "metadata", "name") == "zerotier-config":
                     k["data"]["NETWORK_IDS"] = zerotier_network

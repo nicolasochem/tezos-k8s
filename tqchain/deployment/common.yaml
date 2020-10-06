@@ -20,6 +20,18 @@ spec:
       storage-type: var-files
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  name: tezos-secret
+  namespace: "tqtezos"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tqtezos-utils
+  namespace: "tqtezos"
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: tezos-config
@@ -65,6 +77,8 @@ spec:
       labels:
         app: tezos-node
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - imagePullPolicy: Always
         name: tezos-node
@@ -90,6 +104,9 @@ spec:
       - name: config-volume
         configMap:
           name: tezos-config
+      - name: tqtezos-utils
+        configMap:
+          name: tqtezos-utils
       - name: var-volume
         persistentVolumeClaim:
           claimName: tezos-pv-claim
