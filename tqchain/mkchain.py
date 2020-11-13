@@ -8,6 +8,10 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
+sys.path.insert(0, "tqchain")
+from _version import get_versions
+__version__ = get_versions()['version']
+
 import yaml
 
 my_path = os.path.dirname(os.path.abspath(__file__))
@@ -137,7 +141,7 @@ def get_endorser(docker_image, endorser_command):
 def get_zerotier_initcontainer():
     return {
         "name": "get-zerotier-ip",
-        "image": "tezos-zerotier:dev",
+        "image": ( "tezos-zerotier:dev" if "-" in __version__ or "+" in __version__ else "tqtezos/tezos-k8s-zerotier:%s" % __version ),
         "imagePullPolicy": "IfNotPresent",
         "envFrom": [
             {"configMapRef": {"name": "zerotier-config"}},
@@ -159,7 +163,7 @@ def get_zerotier_initcontainer():
 def get_zerotier_container():
     return {
         "name": "zerotier",
-        "image": "tezos-zerotier:dev",
+        "image": ( "tezos-zerotier:dev" if "-" in __version__ or "+" in __version__ else "tqtezos/tezos-k8s-zerotier:%s" % __version ),
         "imagePullPolicy": "IfNotPresent",
         "command": ["sh"],
         "args": [
@@ -247,6 +251,8 @@ def get_args():
     parser = argparse.ArgumentParser(
         description="Deploys a private Tezos chain on Kuberenetes"
     )
+    parser.add_argument('--version', action='version',
+                    version='%(prog)s {version}'.format(version=__version__))
     subparsers = parser.add_subparsers(
         help="See contextual help with mkchain <action> -h", dest="action"
     )
