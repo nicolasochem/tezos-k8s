@@ -144,4 +144,4 @@ jobs:
           repository: tqtezos/tezos-k8s-${{ matrix.container }}
           tag_with_ref: true
           context: docker/${{ matrix-container }}/.
-          dockerfile: docker/${{ matrix-container }}/Dockerfile
+          dockerfile: docker/${{ matrix.container }}/Dockerfile
