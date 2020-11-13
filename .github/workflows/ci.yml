@@ -143,5 +143,5 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           repository: tqtezos/tezos-k8s-${{ matrix.container }}
           tag_with_ref: true
-          context: ./docker/${{ matrix.container }}
-          dockerfile: ./Dockerfile
+          context: docker/${{ matrix.container }}/.
+          dockerfile: docker/${{ matrix.container }}/Dockerfile
