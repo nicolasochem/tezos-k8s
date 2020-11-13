@@ -120,7 +120,6 @@ jobs:
         # requires a github username and password rather than a token, unfortunately
         # https://github.com/docker/hub-feedback/issues/1914
         #if: github.event_name == 'release' && github.event.action == 'created'
-        uses: softprops/action-gh-release@v1
         run: |
           set -x
 
