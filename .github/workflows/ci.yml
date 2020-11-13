@@ -117,6 +117,8 @@ jobs:
         container: [ zerotier ]
 
     steps:
+      - uses: actions/checkout@v2
+
       - name: Create docker hub ${{ matrix.container }} repo if not exists
         # requires a github username and password rather than a token, unfortunately
         # https://github.com/docker/hub-feedback/issues/1914
