@@ -106,16 +106,27 @@ jobs:
           user: __token__
           password: ${{ secrets.PYPI_TOKEN }}
 
+  list_containers_to_pubish:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'release' && github.event.action == 'created'
+    outputs:
+      matrix: ${{ steps.gen-containers-matrix.outputs.matrix }}
+    steps:
+    - name: gen-containers-matrix
+      run: |
+        echo "::set-output name=matrix::$(jq -n --arg cont "$(find docker  -mindepth 1 -type d -exec basename {} \;)" '$cont | split("\n")')"
+
   publish_containers:
     # based on
     # https://github.com/docker/build-push-action#usage
     runs-on: ubuntu-latest
-    needs: test
+    needs: list_containers_to_publish
     if: github.event_name == 'release' && github.event.action == 'created'
     strategy:
       fail-fast: false
       matrix:
-        container: [ zerotier ]
+        container: ${{fromJson(needs.list_containers_to_publish.outputs.matrix)}}
 
     steps:
       - uses: actions/checkout@v2
