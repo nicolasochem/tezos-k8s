@@ -115,7 +115,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: gen-containers-matrix
+      - id: gen-containers-matrix
         run: |
           set -x
           container_list=$(jq -c -n --arg cont "$(find docker  -mindepth 1 -type d -exec basename {} \;)" '{ container: $cont | split("\n")}' | sed 's/"/\\"/g')
