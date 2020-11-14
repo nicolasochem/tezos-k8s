@@ -118,7 +118,7 @@ jobs:
       - name: gen-containers-matrix
         run: |
           set -x
-          container_list=$(jq -c -n --arg cont "$(find docker  -mindepth 1 -type d -exec basename {} \;)" '$cont | split("\n")' | sed 's/"/\\"/g')
+          container_list=$(jq -c -n --arg cont "$(find docker  -mindepth 1 -type d -exec basename {} \;)" '{ container: $cont | split("\n")}' | sed 's/"/\\"/g')
           echo "::set-output name=matrix::${container_list}"
 
   publish_containers:
@@ -129,8 +129,7 @@ jobs:
       #if: github.event_name == 'release' && github.event.action == 'created'
     strategy:
       fail-fast: false
-      matrix:
-        container: ${{fromJson(needs.list_containers_to_publish.outputs.matrix)}}
+      matrix: ${{fromJson(needs.list_containers_to_publish.outputs.matrix)}}
 
     steps:
       - uses: actions/checkout@v2
