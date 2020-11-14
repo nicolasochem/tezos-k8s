@@ -113,9 +113,11 @@ jobs:
     outputs:
       matrix: ${{ steps.gen-containers-matrix.outputs.matrix }}
     steps:
-    - name: gen-containers-matrix
-      run: |
-        echo "::set-output name=matrix::$(jq -n --arg cont "$(find docker  -mindepth 1 -type d -exec basename {} \;)" '$cont | split("\n")')"
+      - uses: actions/checkout@v2
+
+      - name: gen-containers-matrix
+        run: |
+          echo "::set-output name=matrix::$(jq -n --arg cont "$(find docker  -mindepth 1 -type d -exec basename {} \;)" '$cont | split("\n")')"
 
   publish_containers:
     # based on
