@@ -118,7 +118,8 @@ jobs:
       - name: gen-containers-matrix
         run: |
           set -x
-          echo "::set-output name=matrix::'$(jq -c -n --arg cont "$(find docker  -mindepth 1 -type d -exec basename {} \;)" '$cont | split("\n")')'"
+          container_list=$(jq -c -n --arg cont "$(find docker  -mindepth 1 -type d -exec basename {} \;)" '$cont | split("\n")')
+          echo "::set-output name=matrix::${container_list}"
 
   publish_containers:
     # based on
