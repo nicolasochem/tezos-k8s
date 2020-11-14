@@ -119,8 +119,9 @@ jobs:
     strategy:
       matrix: ${{fromJson(needs.job1.outputs.matrix)}}
     steps:
-    - run: |
-      echo ${{ matrix.project }}
+    - run: echo ${{ matrix.project }}
+      id: testaction
+
   list_containers_to_publish:
     runs-on: ubuntu-latest
       #needs: test
