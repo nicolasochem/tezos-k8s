@@ -215,6 +215,12 @@ spec:
               name: config-volume
             - mountPath: /var/tezos
               name: var-volume
+        - image: {{ .Values.images.wait_for_bootstrap }}
+          imagePullPolicy: IfNotPresent
+          name: wait-for-bootstrap
+          volumeMounts:
+            - mountPath: /var/tezos
+              name: var-volume
       securityContext:
         fsGroup: 100
       volumes:

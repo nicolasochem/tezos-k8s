@@ -42,7 +42,7 @@ def main():
             if bootstrap_peers == []:
                 bootstrap_peers.extend(get_zerotier_bootstrap_peer_ips())
         else:
-            bootstrap_peers.append("tezos-bootstrap-node-p2p:9732")
+            bootstrap_peers.append("tezos-bootstrap-node-0.tezos-bootstrap-node-rpc:9732")
 
         config_json = json.dumps(
             get_node_config(
