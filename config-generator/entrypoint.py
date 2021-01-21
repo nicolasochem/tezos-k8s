@@ -44,10 +44,14 @@ def main():
         else:
             local_bootstrap_peers = []
             for i, node in enumerate(CHAIN_PARAMS["nodes"]["baking"]):
-                if node.get("bootstrap", False) and f"tezos-baking-node-{i}" not in socket.gethostname():
-                    local_bootstrap_peers.append(f"tezos-baking-node-{i}.tezos-baking-node:9732")
+                if (
+                    node.get("bootstrap", False)
+                    and f"tezos-baking-node-{i}" not in socket.gethostname()
+                ):
+                    local_bootstrap_peers.append(
+                        f"tezos-baking-node-{i}.tezos-baking-node:9732"
+                    )
             bootstrap_peers.extend(local_bootstrap_peers)
-
 
         config_json = json.dumps(
             get_node_config(
