@@ -200,6 +200,8 @@
 {{- if (include "tezos.doesZerotierConfigExist" .) }}
 - envFrom:
     - configMapRef:
+        name: tezos-config
+    - configMapRef:
         name: zerotier-config
   image: "{{ .Values.tezos_k8s_images.zerotier }}"
   imagePullPolicy: IfNotPresent
@@ -212,6 +214,8 @@
         - SYS_ADMIN
     privileged: true
   volumeMounts:
+    - mountPath: /etc/tezos
+      name: config-volume
     - mountPath: /var/tezos
       name: var-volume
     - mountPath: /dev/net/tun
